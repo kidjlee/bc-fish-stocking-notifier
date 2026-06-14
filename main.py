@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("fish-notifier")
 
 DATA_FILE = Path(__file__).parent / "data" / "seen_events.json"
+HEARTBEAT_FILE = Path(__file__).parent / "data" / "last_run.txt"
 REGION = scraper.DEFAULT_REGION
+
+
+def write_heartbeat() -> None:
+    """Record the time of this run.
+
+    Committing this file daily keeps the repository "active" so GitHub never
+    auto-disables the scheduled workflow (which happens after 60 days of no
+    repository activity), guaranteeing the bot keeps running year-round.
+    """
+    HEARTBEAT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    HEARTBEAT_FILE.write_text(f"Last run (UTC): {stamp}\n", encoding="utf-8")
 
 
 def load_seen_ids() -> tuple[set[str], bool]:
@@ -58,6 +72,7 @@ def save_seen_ids(seen_ids: set[str]) -> None:
 
 def main() -> int:
     load_dotenv()
+    write_heartbeat()
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
